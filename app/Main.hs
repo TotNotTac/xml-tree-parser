@@ -103,12 +103,12 @@ withNodeDeep :: [Text] -> Parser a -> Parser a
 withNodeDeep (targetName : deepNames) deepParser = withNode targetName $ withNodeDeep deepNames deepParser
 withNodeDeep [] deepParser = deepParser
 
-pEverything :: Parser [Content]
-pEverything = Parser $ \cntnts -> (Right cntnts, cntnts)
+everythingP :: Parser [Content]
+everythingP = Parser $ \cntnts -> (Right cntnts, cntnts)
 
 assertP :: Bool -> Text -> Parser ()
 assertP True _ = Parser $ \cntnt -> (Right (), cntnt)
-assertP False msg = Parser $ \cntnt -> (Left msg, cntnt)
+assertP False msg = fail (T.unpack msg)
 
 messageParser :: Parser Text
 messageParser = do
@@ -116,16 +116,37 @@ messageParser = do
     assertP ("T" `T.isPrefixOf` message) "Message doesn't follow format"
     pure message
 
+isXmlDocument :: Parser ()
+isXmlDocument = do
+    n <- nodeP
+    case lookup "xmlns" (attributes n) of
+        Nothing -> fail "No xmlns attribute"
+        Just bytestringValue -> case decodeUtf8 bytestringValue of
+            "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" -> pure ()
+            value -> fail $ fmt "Unknown xmlns value: " +| value |+ ""
+
+satisfyContent :: ([Content] -> Bool) -> Parser ()
+satisfyContent predicate = Parser $ \cntnts ->
+    if predicate cntnts
+        then (Right (), cntnts)
+        else (Left "Content doesn't satisfy predicate", cntnts)
+
+nodeP :: Parser Node
+nodeP = do
+    [Element n] <- everythingP
+    pure n
+
 smallTestParser :: Parser (Text, Text)
-smallTestParser = withNode "Bla" $ do
-    message <- withNodeDeep ["Yo", "Message"] messageParser
-    binaryData <- withNode "Data" pText
-    pure (message, binaryData)
+smallTestParser = do
+    isXmlDocument
+    withNodeDeep ["Document", "Bla"] $ do
+        message <- withNodeDeep ["Yo", "Message"] messageParser
+        binaryData <- withNode "Data" pText
+        pure (message, binaryData)
 
 main :: IO ()
 main = do
     Right root <- parse <$> BS.readFile "small.xml"
-    let r = evalParser smallTestParser (contents root)
-    case r of
+    case evalParser smallTestParser [Element root] of
         Right a -> print a
         Left e -> T.putStrLn e
