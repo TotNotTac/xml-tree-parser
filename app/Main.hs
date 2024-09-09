@@ -12,6 +12,7 @@ import Data.Function ((&))
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 
+import Control.Applicative (Alternative (..))
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
 import qualified Data.Text.IO as T
@@ -55,6 +56,18 @@ instance Monad Parser where
         (Right a, _) -> runParser (p2 a) cntnts
         (Left e, _) -> (Left e, cntnts)
 
+instance MonadFail Parser where
+    fail :: String -> Parser a
+    fail message = Parser $ \cntnts -> (Left $ T.pack message, cntnts)
+
+instance Alternative Parser where
+    empty :: Parser a
+    empty = Parser $ const (Left "Hit an empty alternative", [])
+    (<|>) :: Parser a -> Parser a -> Parser a
+    (<|>) p1 p2 = Parser $ \cntnts -> case runParser p1 cntnts of
+        (Right x, cntnts') -> (Right x, cntnts')
+        (Left _, _) -> runParser p2 cntnts
+
 evalParser :: Parser a -> [Content] -> Either ParserError a
 evalParser p cntnts = fst $ runParser p cntnts
 
@@ -86,19 +99,33 @@ withNode targetName innerParser = Parser $
         (Just innerNode) -> runParser innerParser (contents innerNode)
         Nothing -> (Left $ fmt "Node not found: " +|| targetName ||+ "", cntnts)
 
+withNodeDeep :: [Text] -> Parser a -> Parser a
+withNodeDeep (targetName : deepNames) deepParser = withNode targetName $ withNodeDeep deepNames deepParser
+withNodeDeep [] deepParser = deepParser
+
 pEverything :: Parser [Content]
 pEverything = Parser $ \cntnts -> (Right cntnts, cntnts)
 
-testParser :: Parser (Text, Text)
-testParser = withNode "Bla" $ do
-    message <- withNode "Yo" $ withNode "Message" pText
+assertP :: Bool -> Text -> Parser ()
+assertP True _ = Parser $ \cntnt -> (Right (), cntnt)
+assertP False msg = Parser $ \cntnt -> (Left msg, cntnt)
+
+messageParser :: Parser Text
+messageParser = do
+    message <- pText
+    assertP ("T" `T.isPrefixOf` message) "Message doesn't follow format"
+    pure message
+
+smallTestParser :: Parser (Text, Text)
+smallTestParser = withNode "Bla" $ do
+    message <- withNodeDeep ["Yo", "Message"] messageParser
     binaryData <- withNode "Data" pText
     pure (message, binaryData)
 
 main :: IO ()
 main = do
     Right root <- parse <$> BS.readFile "small.xml"
-    let r = evalParser testParser (contents root)
+    let r = evalParser smallTestParser (contents root)
     case r of
         Right a -> print a
         Left e -> T.putStrLn e

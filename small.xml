@@ -4,6 +4,9 @@
     <Bla>
         <Yo>
             <Message>This is a greeting message</Message>
+            <Extra>
+                <Kaas>Hello</Kaas>
+            </Extra>
         </Yo>
         <Data>0111011100011011</Data>
     </Bla>
