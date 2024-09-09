@@ -18,7 +18,7 @@ common warnings
 executable parserDsl
     import:           warnings
     main-is:          Main.hs
-    -- other-modules:
+    other-modules:    Parser
     -- other-extensions:
     default-extensions: OverloadedStrings
     build-depends:    base ^>=4.17.2.1
