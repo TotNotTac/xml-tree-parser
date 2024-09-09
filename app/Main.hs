@@ -15,6 +15,7 @@ import Data.Text (Text)
 import Control.Applicative (Alternative (..))
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
+import qualified Data.Text.Encoding as T
 import qualified Data.Text.IO as T
 import Fmt
 import Xeno.DOM
@@ -52,38 +53,38 @@ instance Applicative Parser where
 
 instance Monad Parser where
     (>>=) :: Parser a -> (a -> Parser b) -> Parser b
-    (>>=) p1 p2 = Parser $ \cntnts -> case runParser p1 cntnts of
-        (Right a, _) -> runParser (p2 a) cntnts
-        (Left e, _) -> (Left e, cntnts)
+    (>>=) p1 p2 = Parser $ \cts -> case runParser p1 cts of
+        (Right a, _) -> runParser (p2 a) cts
+        (Left e, _) -> (Left e, cts)
 
 instance MonadFail Parser where
     fail :: String -> Parser a
-    fail message = Parser $ \cntnts -> (Left $ T.pack message, cntnts)
+    fail message = Parser $ \cts -> (Left $ T.pack message, cts)
 
 instance Alternative Parser where
     empty :: Parser a
     empty = Parser $ const (Left "Hit an empty alternative", [])
     (<|>) :: Parser a -> Parser a -> Parser a
-    (<|>) p1 p2 = Parser $ \cntnts -> case runParser p1 cntnts of
-        (Right x, cntnts') -> (Right x, cntnts')
-        (Left _, _) -> runParser p2 cntnts
+    (<|>) p1 p2 = Parser $ \cts -> case runParser p1 cts of
+        (Right x, cts') -> (Right x, cts')
+        (Left _, _) -> runParser p2 cts
 
 evalParser :: Parser a -> [Content] -> Either ParserError a
-evalParser p cntnts = fst $ runParser p cntnts
+evalParser p cts = fst $ runParser p cts
 
 execParser :: Parser a -> [Content] -> [Content]
-execParser p cntnts = snd $ runParser p cntnts
+execParser p cts = snd $ runParser p cts
 
-pText :: Parser Text
-pText = Parser $ \case
+textP :: Parser Text
+textP = Parser $ \case
     [Text bs] -> (pure $ decodeUtf8 bs, [])
     xs -> (Left $ fmt "Node is not a text node: " +|| xs ||+ "", xs)
 
 findNode :: Text -> [Content] -> Maybe Node
-findNode targetName cntnts =
+findNode targetName cts =
     flip
         mapMaybe
-        cntnts
+        cts
         ( \case
             (Element node) | decodeUtf8 (name node) == targetName -> Just node
             _ -> Nothing
@@ -95,53 +96,63 @@ findNode targetName cntnts =
 
 withNode :: Text -> Parser a -> Parser a
 withNode targetName innerParser = Parser $
-    \cntnts -> case findNode targetName cntnts of
+    \cts -> case findNode targetName cts of
         (Just innerNode) -> runParser innerParser (contents innerNode)
-        Nothing -> (Left $ fmt "Node not found: " +|| targetName ||+ "", cntnts)
+        Nothing -> (Left $ fmt "Node not found: " +|| targetName ||+ "", cts)
 
 withNodeDeep :: [Text] -> Parser a -> Parser a
 withNodeDeep (targetName : deepNames) deepParser = withNode targetName $ withNodeDeep deepNames deepParser
 withNodeDeep [] deepParser = deepParser
 
 everythingP :: Parser [Content]
-everythingP = Parser $ \cntnts -> (Right cntnts, cntnts)
+everythingP = Parser $ \cts -> (Right cts, cts)
 
 assertP :: Bool -> Text -> Parser ()
-assertP True _ = Parser $ \cntnt -> (Right (), cntnt)
+assertP True _ = Parser $ \cts -> (Right (), cts)
 assertP False msg = fail (T.unpack msg)
 
 messageParser :: Parser Text
 messageParser = do
-    message <- pText
+    message <- textP
     assertP ("T" `T.isPrefixOf` message) "Message doesn't follow format"
     pure message
 
+attr :: Text -> Parser Text
+attr attrName = do
+    n <- nodeP
+    case lookup (T.encodeUtf8 attrName) (attributes n) of
+        Nothing -> fail $ fmt "Attribute not found: " +|| attrName ||+ ""
+        Just bytestringValue -> pure $ decodeUtf8 bytestringValue
+
 isXmlDocument :: Parser ()
 isXmlDocument = do
-    n <- nodeP
-    case lookup "xmlns" (attributes n) of
-        Nothing -> fail "No xmlns attribute"
-        Just bytestringValue -> case decodeUtf8 bytestringValue of
-            "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" -> pure ()
-            value -> fail $ fmt "Unknown xmlns value: " +| value |+ ""
+    attr "xmlns" >>= \case
+        "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" -> pure ()
+        value -> fail $ fmt "Unknown xmlns value: " +| value |+ ""
 
 satisfyContent :: ([Content] -> Bool) -> Parser ()
-satisfyContent predicate = Parser $ \cntnts ->
-    if predicate cntnts
-        then (Right (), cntnts)
-        else (Left "Content doesn't satisfy predicate", cntnts)
+satisfyContent predicate = Parser $ \cts ->
+    if predicate cts
+        then (Right (), cts)
+        else (Left "Content doesn't satisfy predicate", cts)
 
 nodeP :: Parser Node
 nodeP = do
     [Element n] <- everythingP
     pure n
 
+optional :: Parser a -> Parser (Maybe a)
+optional p = Parser $ \c ->
+    case runParser p c of
+        (Left _, c') -> (Right Nothing, c')
+        (Right x, c') -> (Right (Just x), c')
+
 smallTestParser :: Parser (Text, Text)
 smallTestParser = do
     isXmlDocument
     withNodeDeep ["Document", "Bla"] $ do
         message <- withNodeDeep ["Yo", "Message"] messageParser
-        binaryData <- withNode "Data" pText
+        binaryData <- withNode "Data" textP
         pure (message, binaryData)
 
 main :: IO ()

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <CstmrCdtTrfInitn>
         <GrpHdr>
             <MsgId>MMMM20211231v1</MsgId>
@@ -45,7 +46,7 @@
                     <InstrId>MIB InstrId305-312MM20211231v1</InstrId>
                     <EndToEndId>MIB E2E305-312MM20211231v1</EndToEndId>
                 </PmtId>
-                <PmtTpInf/>
+                <PmtTpInf />
                 <Amt>
                     <InstdAmt Ccy="EUR">0.01</InstdAmt>
                 </Amt>
@@ -108,7 +109,7 @@
                     <InstrId>MIB InstrId305-312MM20211231v1</InstrId>
                     <EndToEndId>MIB E2E305-312MM20211231v1</EndToEndId>
                 </PmtId>
-                <PmtTpInf/>
+                <PmtTpInf />
                 <Amt>
                     <InstdAmt Ccy="EUR">0.02</InstdAmt>
                 </Amt>
