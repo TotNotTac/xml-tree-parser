@@ -21,14 +21,12 @@ executable parserDsl
     other-modules:    Parser
     -- other-extensions:
     default-extensions: OverloadedStrings
-    build-depends:    base ^>=4.17.2.1
-                    , req
+                      , TypeApplications
+    build-depends:    base ^>=4.20.0.0
                     , lens
                     , bytestring
                     , xeno
                     , text
                     , fmt
-                    , vector
-                    , logict
     hs-source-dirs:   app
     default-language: Haskell2010
