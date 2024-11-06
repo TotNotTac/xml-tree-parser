@@ -1,16 +1,12 @@
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
-{-# HLINT ignore "Use tuple-section" #-}
 
 module Parser (
   ParserError,
   Parser (..),
-  isXmlDocument,
+  isISO20000Document,
   withNodeDeep,
   messageParser,
   withNode,
@@ -45,9 +41,7 @@ instance Functor Parser where
   fmap f p = Parser $ first (fmap f) . runParser p
 
 instance Applicative Parser where
-  pure :: a -> Parser a
   pure x = Parser (Right x,)
-  (<*>) :: Parser (a -> b) -> Parser a -> Parser b
   Parser ff <*> Parser xx = Parser $ \nodes0 -> case ff nodes0 of
     (Left e, nodes1) -> (Left e, nodes1)
     (Right f, nodes1) -> case xx nodes1 of
@@ -55,19 +49,15 @@ instance Applicative Parser where
       (Right x, nodes2) -> (Right (f x), nodes2)
 
 instance Monad Parser where
-  (>>=) :: Parser a -> (a -> Parser b) -> Parser b
   (>>=) p1 p2 = Parser $ \cts -> case runParser p1 cts of
     (Right a, _) -> runParser (p2 a) cts
     (Left e, _) -> (Left e, cts)
 
 instance MonadFail Parser where
-  fail :: String -> Parser a
   fail message = Parser $ \cts -> (Left $ T.pack message, cts)
 
 instance Alternative Parser where
-  empty :: Parser a
   empty = Parser $ \cts -> (Left "No more parser paths", cts)
-  (<|>) :: Parser a -> Parser a -> Parser a
   (<|>) p1 p2 = Parser $ \cts -> case runParser p1 cts of
     (Right x, cts') -> (Right x, cts')
     (Left _, _) -> runParser p2 cts
@@ -133,8 +123,8 @@ attr attrName = do
     Nothing -> fail $ fmt "Attribute not found: " +|| attrName ||+ ""
     Just bytestringValue -> pure $ decodeUtf8 bytestringValue
 
-isXmlDocument :: Parser ()
-isXmlDocument = do
+isISO20000Document :: Parser ()
+isISO20000Document = do
   attr "xmlns" >>= \case
     "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03" -> pure ()
     value -> fail $ fmt "Unknown xmlns value: " +| value |+ ""

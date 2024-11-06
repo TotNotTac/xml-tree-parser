@@ -28,7 +28,7 @@ newtype ParsedDocument = ParsedDocument
 
 smallTestParser :: Parser (Text, Text)
 smallTestParser = do
-  isXmlDocument
+  isISO20000Document
   withNodeDeep ["Document", "Bla"] $ do
     message <- withNodeDeep ["Yo", "Message"] messageParser
     binaryData <- withNode "Data" textP
