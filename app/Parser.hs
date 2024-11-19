@@ -25,6 +25,7 @@ where
 import Control.Applicative (Alternative (..))
 import Control.Arrow (first, (>>>))
 import Control.Monad (guard)
+import Data.Function ((&))
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -93,6 +94,19 @@ findNode targetName =
       [n] -> Just n
       [] -> Nothing
       _ -> error $ fmtLn "More than one node found of type: " +|| targetName ||+ ". This should never happen"
+
+matchesTag :: Text -> Content -> Bool
+matchesTag targetName (Element node) | decodeUtf8 (name node) == targetName = True
+matchesTag _ _ = False
+
+filterNodes :: (Content -> Bool) -> [Content] -> [Content]
+filterNodes p cts = filter p cts
+
+withNodeMultiple :: Text -> Parser a -> Parser [a]
+withNodeMultiple targetName innerParser =
+  Parser $ \cts ->
+    filterNodes (matchesTag targetName) cts
+      & \filteredCts -> runParser $ innerParser filteredCts
 
 withNode :: Text -> Parser a -> Parser a
 withNode targetName innerParser = Parser $

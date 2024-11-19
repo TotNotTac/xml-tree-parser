@@ -6,33 +6,48 @@ module Main where
 
 import qualified Data.ByteString as BS
 
-import Data.Text (Text)
+import Data.Text (Text, isPrefixOf)
 import qualified Data.Text.IO as T
 
+import Control.Monad (guard)
+import GHC.Base (Alternative ((<|>)))
 import Parser
 import Xeno.DOM (Content (Element), parse)
 
-data GroupHeader = GroupHeader
-  { _msgId :: Text
-  , _creDtTm :: Text
-  , _nbOfTxs :: Int
-  , _ctrlSum :: Double
-  , _initgPty :: Text
+data UID
+  = StudentNumber Text
+  | EmployeeId Text
+  deriving (Show)
+
+data Person = Person
+  { name :: Text
+  , identification :: UID
+  , hobbies :: [Text]
   }
   deriving (Show)
 
-newtype ParsedDocument = ParsedDocument
-  { groupHeader :: GroupHeader
-  }
-  deriving (Show)
+parseStudentNumber :: Parser UID
+parseStudentNumber = do
+  t <- withNode "StudentNumber" textP
+  pure $ StudentNumber t
 
-smallTestParser :: Parser (Text, Text)
+parseEmployeeId :: Parser UID
+parseEmployeeId = do
+  t <- withNode "EmployeeID" textP
+  assertP ("#" `isPrefixOf` t) "EmployeeID must start with a '#'"
+  pure $ EmployeeId t
+
+parseHobbies :: Parser [Text]
+parseHobbies = undefined
+
+smallTestParser :: Parser Person
 smallTestParser = do
-  isISO20000Document
-  withNodeDeep ["Document", "Bla"] $ do
-    message <- withNodeDeep ["Yo", "Message"] messageParser
-    binaryData <- withNode "Data" textP
-    pure (message, binaryData)
+  withNode "Document" $ do
+    n <- withNode "Name" textP
+    uid <- withNode "Identification" (parseStudentNumber <|> parseEmployeeId)
+    h <- parseHobbies
+
+    pure $ Person{name = n, identification = uid, hobbies = h}
 
 main :: IO ()
 main = do
