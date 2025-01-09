@@ -22,7 +22,6 @@ data UID
 data Person = Person
   { name :: Text
   , identification :: UID
-  , hobbies :: [Text]
   }
   deriving (Show)
 
@@ -45,13 +44,12 @@ smallTestParser = do
   withNode "Document" $ do
     n <- withNode "Name" textP
     uid <- withNode "Identification" (parseStudentNumber <|> parseEmployeeId)
-    h <- parseHobbies
 
-    pure $ Person{name = n, identification = uid, hobbies = h}
+    pure $ Person{name = n, identification = uid}
 
 main :: IO ()
 main = do
   Right root <- parse <$> BS.readFile "small.xml"
   case evalParser smallTestParser [Element root] of
     Right a -> print a
-    Left e -> T.putStrLn e
+    Left e -> T.putStrLn $ "Error: " <> e

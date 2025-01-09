@@ -102,11 +102,11 @@ matchesTag _ _ = False
 filterNodes :: (Content -> Bool) -> [Content] -> [Content]
 filterNodes p cts = filter p cts
 
-withNodeMultiple :: Text -> Parser a -> Parser [a]
-withNodeMultiple targetName innerParser =
-  Parser $ \cts ->
-    filterNodes (matchesTag targetName) cts
-      & \filteredCts -> runParser $ innerParser filteredCts
+-- withNodeMultiple :: Text -> Parser a -> Parser [a]
+-- withNodeMultiple targetName innerParser =
+--   Parser $ \cts ->
+--     filterNodes (matchesTag targetName) cts
+--       & \filteredCts -> runParser $ innerParser filteredCts
 
 withNode :: Text -> Parser a -> Parser a
 withNode targetName innerParser = Parser $
