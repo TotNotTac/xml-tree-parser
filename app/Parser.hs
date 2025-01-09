@@ -10,7 +10,9 @@ module Parser (
   withNodeDeep,
   messageParser,
   withNode,
+  withNodeMultiple,
   textP,
+  rawTextP,
   evalParser,
   execParser,
   lexeme,
@@ -23,8 +25,9 @@ module Parser (
 where
 
 import Control.Applicative (Alternative (..))
-import Control.Arrow (first, (>>>))
+import Control.Arrow (Arrow (second), first, (>>>))
 import Control.Monad (guard)
+import Data.Either (fromRight, isLeft, isRight, lefts, rights)
 import Data.Function ((&))
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
@@ -102,11 +105,22 @@ matchesTag _ _ = False
 filterNodes :: (Content -> Bool) -> [Content] -> [Content]
 filterNodes p cts = filter p cts
 
--- withNodeMultiple :: Text -> Parser a -> Parser [a]
--- withNodeMultiple targetName innerParser =
---   Parser $ \cts ->
---     filterNodes (matchesTag targetName) cts
---       & \filteredCts -> runParser $ innerParser filteredCts
+-- | This code is garbage, please rewrite this. My god
+withNodeMultiple :: Text -> Parser a -> Parser [a]
+withNodeMultiple targetName innerParser =
+  Parser $ \cts ->
+    let results =
+          cts
+            & filterNodes (matchesTag targetName)
+            & map
+              ( (: [])
+                  >>> runParser (withNode targetName innerParser)
+                  >>> fst
+              )
+    in  if all isRight results
+          then (Right $ rights results, cts)
+          -- This is shit in particular
+          else (Left . head $ lefts results, cts)
 
 withNode :: Text -> Parser a -> Parser a
 withNode targetName innerParser = Parser $

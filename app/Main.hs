@@ -22,6 +22,7 @@ data UID
 data Person = Person
   { name :: Text
   , identification :: UID
+  , hobbies :: [Text]
   }
   deriving (Show)
 
@@ -37,15 +38,16 @@ parseEmployeeId = do
   pure $ EmployeeId t
 
 parseHobbies :: Parser [Text]
-parseHobbies = undefined
+parseHobbies = withNodeMultiple "Hobby" textP
 
 smallTestParser :: Parser Person
 smallTestParser = do
   withNode "Document" $ do
     n <- withNode "Name" textP
     uid <- withNode "Identification" (parseStudentNumber <|> parseEmployeeId)
+    h <- parseHobbies
 
-    pure $ Person{name = n, identification = uid}
+    pure $ Person{name = n, identification = uid, hobbies = h}
 
 main :: IO ()
 main = do

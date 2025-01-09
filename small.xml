@@ -4,4 +4,6 @@
     <Identification>
         <EmployeeID>#123456</EmployeeID>
     </Identification>
+    <Hobby>Icehockey</Hobby>
+    <Hobby>Programming</Hobby>
 </Document>
